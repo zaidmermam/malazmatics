@@ -1,22 +1,31 @@
-from telegram.ext import Updater, CommandHandler
+from telegram.ext.updater import Updater
+from telegram.update import Update
+from telegram.ext.callbackcontext import CallbackContext
+from telegram.ext.commandhandler import CommandHandler
+from telegram.ext.messagehandler import MessageHandler
+from telegram.ext.filters import Filters
 
-def echo(update, context):
-  """Responds to any message with a nerd emoji GIF"""
-  nerd_gif_url = "https://media1.tenor.com/m/qhM54DikB7cAAAAC/nerd-emoji.gif"  # Replace with desired GIF URL if needed
-  context.bot.send_chat_action(chat_id=update.effective_chat.id, action="typing")
-  context.bot.send_animation(chat_id=update.effective_chat.id, animation_url=nerd_gif_url)
+token = '6255596860:AAFVu3vCmRW9G7BjujcEnhJiMJCGyFj7joI'
+updater = Updater(token, use_context=True)
+
+
+def start(update: Update, context: CallbackContext):
+    update.message.reply_text("مرحبا بك! انا بوت يهدف لمساعدة طلاب سوريا من مختلف الصفوف من خلال توفير ملفات شرح "
+                              "الدروس, النماذج الامتحانية, و اوراق العمل من قبل نخبة الاساتذة السوريين. في الوقت "
+                              "الحالي, ليست لدينا موارد الا لمادة الرياضيات, لكننا نعمل جاهدين لتوفير ذلك لجميع المواد!")
+
+
+def helptext(update: Update, context: CallbackContext):
+    update.message.reply_text("Your Message")
+
 
 def main():
-  """Starts the bot"""
-  # Replace with your actual bot token (keep it private!)
-  updater = Updater("6255596860:AAFVu3vCmRW9G7BjujcEnhJiMJCGyFj7joI")
-  dispatcher = updater.dispatcher
+    dispatcher = updater.dispatcher
+    updater.dispatcher.add_handler(CommandHandler('help',helptext))
+    updater.dispatcher.add_handler(CommandHandler('start',start))
+    updater.start_polling()
+    updater.idle()
 
-  # Handle all messages with the echo function
-  dispatcher.add_handler(CommandHandler("echo", echo))  # You can remove this line if you don't want a specific command
-
-  updater.start_polling()
-  updater.idle()
 
 if __name__ == '__main__':
-  main()
+    main()
