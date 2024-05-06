@@ -32,8 +32,6 @@ password = "Lime"
 reset_pass = "ResetMe420UwU"
 unsubscribers = set()
 subscribers = set()
-regular_user_commands = ['/start', '/help', '/upcoming']
-admin_commands = ['/start', '/help', '/upcoming', '/upset', '/sendall']
 preserved_names = [
     "cancel",
     "add/remove",
@@ -695,15 +693,6 @@ def check_data(update: Update, context: CallbackContext):
         start(update, context)
         return True
     return False
-
-# Function to handle user commands
-def handle_command_list(user_role):
-    commands = []
-    if user_role:
-         commands
-    elif user_role:
-         print("show admin commands.")
-    bot.set_my_commands(commands)
 
 def start(update: Update, context: CallbackContext):
     global unsubscribers, subscribers, keyboard_layout, log
