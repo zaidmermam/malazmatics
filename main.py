@@ -1,8 +1,9 @@
 ### الحمدلله if you can see me its working
 import mimetypes
 import subprocess
+import data
 
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Bot, ParseMode
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Bot, BotCommand, ParseMode
 import os
 import logging
 from datetime import datetime, timedelta
@@ -19,7 +20,7 @@ from telegram.ext import (
 keyboard_layout = {
     "start": [],
 }
-TOKEN = "7118089972:AAGeuHugpqcbDPNqVptKxtBdb66EcSaOEmY"
+TOKEN = "6885894371:AAGNeZK41ncT01_hTYCrKzodSDdyCzROHyk"
 bot = Bot(TOKEN)
 SAVE_FILE = "savefile.yaml"
 LOGGING_FILE = "bot_logs.yaml"
@@ -49,229 +50,6 @@ name_convert = {
     "state_to_idfilename": {"start.": "0.ext"},
     "idfilename_to_orname": {"0.ext": "0.ext"},
 }
-messages = {
-    "english": {
-        "hello":
-            "Hello!\nI am a bot made to help you study any subject with ease, with work sheets, explanations, and "
-            "exam papers prepared by the best of our teachers. Navigate using the button keyboard on the right "
-            "side of your text box. To learn more you can use /help",
-        "choose_option":
-            "Choose an option:",
-        "cancelled":
-            "Operation cancelled.",
-        "file_downloaded":
-            "File uploaded successfully.",
-        "no_file_found":
-            "No file found.",
-        "button_removed":
-            "Button <code>{button_name}</code> removed successfully.",
-        "button_added":
-            "Button <code>{button_name}</code> added successfully.",
-        "button_pressed":
-            "You entered <code>{pressed_button}</code>.",
-        "no_file_for_state":
-            "This file hasn't been added yet.",
-        "unworthy":
-            "Please enter admin mode to continue with this action.",
-        "lang_changed":
-            "Language set to English.",
-        "add_remove_prompt":
-            "Please enter the name of the button you want to add or remove. Type <code>cancel</code> to cancel "
-            "this update.",
-        "reset":
-            "Operation BOMB has been done agent 69.",
-        "reset_pass":
-            f"The password to reset the bot is <code>{reset_pass}</code>. Send it to perform this operation.\n"
-            f"Warning: This will reset the entire bot, including all uploaded files and remove all buttons.",
-        "choose_lang":
-            "Choose your language:",
-        "lang_not_supported":
-            "This language is not supported.",
-        "help":
-            '''💫 Welcome to Syrian Stars School's bot!
-This bot will help you get our latest news, and find all you need in terms of work sheets, explanations, past exam papers, and more!
-
-💫 Main commands:
-
-🌟 /start - to restart the bot
-🌟 /setlang - to change the bot's language
-🌟 /sub - to subscribe to our news and announcements
-🌟 /unsub - to unsubscribe from our news and announcements
-🌟 /upcoming - to show upcoming events
-^
-📌 Facebook: 
-https://www.facebook.com/profile.php?id=100071613814495
-📌 Mobile:
-+963 959 303 022
-📌 Location: 
-https://maps.app.goo.gl/iVrceWoGB4xksFiA8
-We are open from 8:00 until 13:00 on work days.
-
-📌 The bot's developers:
-@Sir_Lime @SimaSandouk @ZaidKhorsi @Abdullah_Kassar
-Feel free to contact us to report a bug or request a new feature.''',
-        "admin_help": '''
-🛠 Admin Mode commands:
-
-⚙️ Add/Remove
-To add a button: Enter the name of the button you want to add. This name should be unique among the rest of the buttons in the current subcategory. You can add more than one button to the same row by separating their names with commas <code>,</code>.
-To remove a button: Enter the name of the button you want to remove from the subcategory. All buttons and files inside this button will be deleted. Names must completely match for the removal operation to work. 
-To cancel this operation, type and send <code>cancel</code>.
-
-⚙️ /sendall ~Message~
-To send the specified message to all subscribed users.
-
-⚙️ /upset ~Event date in format: <b>YYYY-MM-DD</b>~ ~Event name~
-To set an upcoming event on the specified date.
-Example:
-<code>/upset 2025-04-17 عطلة عيد الجلاء</code>
-
-⚙️ /reset
-To reset the bot. Be careful and 100% sure you want to delete all files and buttons before proceeding with this operation.
-
-🛠 To upload a file:
-1 - Add the button which you want to send the file in the desired destination with its name followed by a period <code>.</code>.
-2 - Enter the newly added button ending with a <code>.</code> and send the desired file.
-3 - File can now be retrieved using the <code>Download File</code> button.
-
-''',
-        "subbed":
-            "You subscribed to our news and announcements successfully.",
-        "unsubbed":
-            "You unsubscribed from our news and announcements successfully.",
-        "sendall_args":
-            "Usage: /sendall ~Message~",
-        "upcoming_event":
-            "<b>{day_of_week} {event_date} ({days_left} day(s)):</b>\n"
-            "{event_name}",
-        "upset_past":
-            "You can't add an event in the past.",
-        "upcoming_set":
-            "Upcoming event set: {event_name} on {day_of_week} {event_date}.",
-        "upcoming_args":
-            "Usage: /upset ~date <b>YYYY-MM-DD</b>~ ~event~.",
-        "no_events":
-            "No upcoming events to show.",
-        "update_success":
-            "Update applied successfully",
-        "try_again":
-            "User has no data. Please try again.",
-    },
-    "arabic": {
-        "hello":
-            "مرحباً!\n"
-            " انا بوت سيقوم بمساعدتك بدراسة أي مادة بسهولة عن طريق اوراق العمل, الشروحات, و النماذج "
-            "الامتحانية من قبل نخبة معلمينا. يمكنك التنقل عبر البوت من خلال كيبورد الأزرار على يمين مساحة"
-            " الكتابة. لمعرفة المزيد يمكنك استخدام"
-            " /help",
-        "choose_option":
-            "اختر خيارًا:",
-        "cancelled":
-            "تم الغاء العملية.",
-        "file_downloaded":
-            "تم رفع الملف بنجاح.",
-        "no_file_found":
-            "لم يتم العثور على ملف.",
-        "button_removed":
-            "تمت إزالة الزر <code>{button_name}</code> بنجاح.",
-        "button_added":
-            "تمت إضافة الزر <code>{button_name}</code> بنجاح.",
-        "button_pressed":
-            "لقد دخلت الى <code>{pressed_button}</code>.",
-        "no_file_for_state":
-            "لم تتم اضافة هذا الملف بعد.",
-        "unworthy":
-            "يرجى دخول وضع الادارة للقيام بهذا العمل.",
-        "lang_changed":
-            "تم تعيين اللغة إلى العربية.",
-        "add_remove_prompt":
-            "الرجاء إدخال اسم الزر الذي تريد إضافته أو إزالته. اكتب "
-            "<code>cancel</code> "
-            "من اجل الغاء هذا التعديل.",
-        "reset":
-            "تمت إعادة الضبط, عميل 47.",
-        "reset_pass":
-            f"كلمة المرور لإعادة ضبط البوت هي "
-            f"<code>{reset_pass}</code>. "
-            f" أرسلها للقيام بهذه العملية.\n"
-            f"تحذير: هذه العملية تعيد ضبط البوت بأكمله و من ضمن ذلك الملفات"
-            f" المرفوعة و الأزرار.",
-        "choose_lang":
-            "اختر لغتك:",
-        "lang_not_supported":
-            "هذه اللغة غير مدعومة.",
-        "help":
-            '''💫 اهلاً بك في بوت مدرسة نجوم سورية! 
-هذا البوت سيساعدك في الحصول على أحدث أخبارنا، و إيجاد كل ما تحتاجه من أوراق العمل، شرح للدروس، أسئلة دورات, وأكثر!
-
-💫 الأوامر الأساسية:
-
-🌟 /start - لإعادة تشغيل البوت
-🌟 /setlang - لتغيير لغة البوت
-🌟 /sub - للاشتراك بأخبارنا وإعلاناتنا
-🌟 /unsub - لإلغاء الاشتراك بأخبارنا وإعلاناتنا
-🌟 /upcoming - لإظهار قائمة بالأحداث المقبلة
-^
-📌 فيسبوك: 
-https://www.facebook.com/profile.php?id=100071613814495
-📌 موبايل:
-+963 959 303 022
-📌 الموقع: 
-https://maps.app.goo.gl/iVrceWoGB4xksFiA8
-نفتح بين الساعة 8 صباحاً و ال1 ظهراً في أيام الدوام.
-
-📌 مبرمجو البوت:
-@Sir_lime @SimaSandouk @ZaidKhorsi @Abdullah_Kassar
-يمكنك التواصل معنا للإبلاغ عن مشكلة او طلب ميزة جديدة.
-''',
-        "admin_help": ''' 🛠 أوامر وضع الإدارة:
-
-⚙️ Add/Remove
-لإضافة زر: ادخل اسم الزر الجديد الذي تريد إضافته, هذا الاسم يجب أن يكون مختلفاً عن باقي الأسماء في القائمة الحالية, يمكنك إضافة أكثر من زر إلى نفس الصف من خلال كتابة أسمائهم مع وضع فاصلة <code>,</code> بينهم.
- لحذف زر: ادخل اسم الزر الذي تريد حذفه في القائمة الحالية, سيتم حذف الزر مع جميع الأزرار التي بداخل هذا الزر, يجب أن تتطابق الأسماء لتتم عملية الحذف.
-للخروج من هذه التعليمة: قم بإرسال: <code>cancel</code>
-
-⚙️ /sendall ~الرسالة التي تريد ارسالها~
-لإرسال الرسالة المحددة إلى جميع المستخدمين المشتركين في الأخبار.
-
-⚙️ /upset ~تاريخ الحدث بصيغة <b>YYYY-MM-DD</b>~ ~اسم الحدث~
-لتعيين حدث جديد في التاريخ المعين.
-مثال:
-<code>/upset 2025-04-17 عطلة عيد الجلاء</code>
-
-⚙️ /reset
-لإعادة ضبط البوت. كن حذراً وواثقاً تماماً أنك تريد حذف جميع الأزرار و الملفات قبل القيام بهذه العملية.
-
-🛠 لرفع ملف:
-1 - أضف الزر الذي تريد أن يُرسِل الملف في المكان المطلوب مع اسمه ملحوقاً بنقطة <code>.</code> .
-2 - ادخل إلى الزر الجديد المنتهي اسمه بنقطة ثم أرسل الملف المطلوب.
- 3 - يمكنك الآن تنزيل الملف من خلال زر <code>Download File</code>.
-
-''',
-        "subbed":
-            "تم الاشتراك باخبارنا و اعلاناتنا بنجاح.",
-        "unsubbed":
-            "تم الغاء الاشتراك باخبارنا و اعلاناتنا بنجاح.",
-        "sendall_args":
-            "الاستخدام:\n/sendall <النص>",
-        "upcoming_event":
-            "<b>{day_of_week} {event_date} (بعد {days_left} أيام):</b>\n"
-            "{event_name}",
-        "upset_past":
-            "لا يمكنك اضافة حدث في الماضي.",
-        "upcoming_set":
-            "تم تحديد حدث: {event_name} يوم {day_of_week} {event_date}.",
-        "upcoming_args":
-            "الاستخدام:"
-            "\n /upset ~<b>YYYY-MM-DD</b> الحدث~ ~التاريخ~",
-        "no_events":
-            "لا توجد احداث قادمة.",
-        "update_success":
-            "تم التعديل بنجاح.",
-        "try_again":
-            "لا توجد بيانات للمستخدم. ترجى اعادة المحاولة.",
-    },
-}
 week_days = {
     "english": {
         0: "Sunday",
@@ -296,11 +74,11 @@ week_days = {
 
 def help_message(update, context):
     check_data(update, context)
-    message = messages[context.user_data["language"]]["help"]
+    message = data.messages[context.user_data["language"]]["help"]
     if context.user_data["admin"]:
         x = message.split("^", maxsplit=1)
         update.message.reply_text(
-            x[0] + messages[context.user_data["language"]]["admin_help"] +
+            x[0] + data.messages[context.user_data["language"]]["admin_help"] +
             x[1], parse_mode=ParseMode.HTML)
     else:
         update.message.reply_text(message.replace("^", ""), parse_mode=ParseMode.HTML)
@@ -351,7 +129,7 @@ def set_upcoming(update, context):
     check_data(update, context)
     if not context.user_data["admin"]:
         update.message.reply_text(
-            messages[context.user_data["language"]]["unworthy"],
+            data.messages[context.user_data["language"]]["unworthy"],
             parse_mode=ParseMode.HTML)
         return
     try:
@@ -362,7 +140,7 @@ def set_upcoming(update, context):
         }
         if temp["date"].strftime('%Y-%m-%d') < datetime.today().strftime('%Y-%m-%d'):
             update.message.reply_text(
-                messages[context.user_data["language"]]["upset_past"],
+                data.messages[context.user_data["language"]]["upset_past"],
                 parse_mode=ParseMode.HTML)
             return
         temp["dayofweek"] = int(temp["date"].strftime('%w'))
@@ -376,7 +154,7 @@ def set_upcoming(update, context):
                 left = mid + 1
         upcoming_events.insert(left, temp)
         update.message.reply_text(
-            messages[context.user_data["language"]]["upcoming_set"].format(
+            data.messages[context.user_data["language"]]["upcoming_set"].format(
                 event_name=upcoming_events[left]["name"],
                 event_date=upcoming_events[left]["date"].strftime("%Y-%m-%d"),
                 day_of_week=week_days[context.user_data["language"]][
@@ -389,7 +167,7 @@ def set_upcoming(update, context):
     except Exception as e:
         print(e)
         update.message.reply_text(
-            messages[context.user_data["language"]]["upcoming_args"],
+            data.messages[context.user_data["language"]]["upcoming_args"],
             parse_mode=ParseMode.HTML)
     save()
 
@@ -408,7 +186,7 @@ def upcoming(update, context):
             continue
         cnt += 1
         delta = event["date"] - datetime.today() + timedelta(days=1)
-        message += messages[
+        message += data.messages[
             context.user_data["language"]]["upcoming_event"].format(
             event_name=event["name"],
             day_of_week=week_days[context.user_data["language"]][
@@ -421,7 +199,7 @@ def upcoming(update, context):
         upcoming_events.pop(toremove[i])
     if cnt == 0:
         update.message.reply_text(
-            messages[context.user_data["language"]]["no_events"],
+            data.messages[context.user_data["language"]]["no_events"],
             parse_mode=ParseMode.HTML)
         return
     update.message.reply_text(message, parse_mode=ParseMode.HTML)
@@ -435,7 +213,7 @@ def send_all(update: Update, context: CallbackContext):
         message_parts = update.message.text.split(" ", 1)
         if len(message_parts) <= 1:
             update.message.reply_text(
-                messages[context.user_data["language"]]["sendall_args"],
+                data.messages[context.user_data["language"]]["sendall_args"],
                 parse_mode=ParseMode.HTML)
             return
         message = message_parts[1]
@@ -453,7 +231,7 @@ def send_all(update: Update, context: CallbackContext):
                 pass
     else:
         update.message.reply_text(
-            messages[context.user_data["language"]]["unworthy"],
+            data.messages[context.user_data["language"]]["unworthy"],
             parse_mode=ParseMode.HTML)
 
 
@@ -465,7 +243,7 @@ def subscribe(update: Update, context: CallbackContext):
     subscribers.add(user)
     save()
     update.message.reply_text(
-        messages[context.user_data["language"]]["subbed"],
+        data.messages[context.user_data["language"]]["subbed"],
         parse_mode=ParseMode.HTML)
     log.info(
         f"user: {bot.get_chat(user).username} has subscribed!",
@@ -481,7 +259,7 @@ def unsubscribe(update: Update, context: CallbackContext):
     unsubscribers.add(user)
     save()
     update.message.reply_text(
-        messages[context.user_data["language"]]["unsubbed"],
+        data.messages[context.user_data["language"]]["unsubbed"],
         parse_mode=ParseMode.HTML)
     log.info(
         f"user: {bot.get_chat(user).username} has unsubscribed..",
@@ -493,11 +271,11 @@ def reset(update: Update, context: CallbackContext):
     check_data(update, context)
     if context.user_data["admin"]:
         update.message.reply_text(
-            messages[context.user_data["language"]]["reset_pass"],
+            data.messages[context.user_data["language"]]["reset_pass"],
             parse_mode=ParseMode.HTML)
     else:
         update.message.reply_text(
-            messages[context.user_data["language"]]["unworthy"],
+            data.messages[context.user_data["language"]]["unworthy"],
             parse_mode=ParseMode.HTML)
 
 
@@ -582,17 +360,17 @@ def remove_branches(branch_state):
 def add_remove(update: Update, context: CallbackContext):
     if check_data(update, context):
         update.message.reply_text(
-            messages[context.user_data["language"]]["try_again"],
+            data.messages[context.user_data["language"]]["try_again"],
             parse_mode=ParseMode.HTML)
         return
     if context.user_data["admin"]:
         update.message.reply_text(
-            messages[context.user_data["language"]]["add_remove_prompt"],
+            data.messages[context.user_data["language"]]["add_remove_prompt"],
             parse_mode=ParseMode.HTML)
         return ADD_REMOVE
     else:
         update.message.reply_text(
-            messages[context.user_data["language"]]["unworthy"],
+            data.messages[context.user_data["language"]]["unworthy"],
             parse_mode=ParseMode.HTML)
         return
 
@@ -600,7 +378,7 @@ def add_remove(update: Update, context: CallbackContext):
 def receive_button_name(update: Update, context: CallbackContext):
     if check_data(update, context):
         update.message.reply_text(
-            messages[context.user_data["language"]]["try_again"],
+            data.messages[context.user_data["language"]]["try_again"],
             parse_mode=ParseMode.HTML)
         return
     global password
@@ -615,7 +393,7 @@ def receive_button_name(update: Update, context: CallbackContext):
             continue
         if name.lower() in preserved_names:
             update.message.reply_text(
-                messages[context.user_data["language"]]["cancelled"],
+                data.messages[context.user_data["language"]]["cancelled"],
                 parse_mode=ParseMode.HTML)
             continue
         updated = True
@@ -633,7 +411,7 @@ def receive_button_name(update: Update, context: CallbackContext):
             keyboard_layout[state][-1].append(KeyboardButton(name))
             keyboard_layout[state + "_" + name] = []
             update.message.reply_text(
-                messages[context.user_data["language"]]["button_added"].format(
+                data.messages[context.user_data["language"]]["button_added"].format(
                     button_name=name),
                 parse_mode=ParseMode.HTML)
             log.info(
@@ -652,7 +430,7 @@ def receive_button_name(update: Update, context: CallbackContext):
             removed_state = context.user_data["state"] + '_' + removed_button_name
             remove_branches(removed_state)
             update.message.reply_text(
-                messages[context.user_data["language"]]
+                data.messages[context.user_data["language"]]
                 ["button_removed"].format(button_name=removed_button_name),
                 parse_mode=ParseMode.HTML)
             log.info(
@@ -677,7 +455,7 @@ def receive_button_name(update: Update, context: CallbackContext):
         return ConversationHandler.END
     reply_markup = get_keyboard_markup(context)
     update.message.reply_text(
-        messages[context.user_data["language"]]["update_success"],
+        data.messages[context.user_data["language"]]["update_success"],
         reply_markup=reply_markup,
         parse_mode=ParseMode.HTML)
     return ConversationHandler.END
@@ -686,10 +464,10 @@ def receive_button_name(update: Update, context: CallbackContext):
 def upload_file(update: Update, context: CallbackContext):
     global file_id_counter, name_convert
     if check_data(update, context):
-        update.message.reply_text(messages[context.user_data["language"]]["try_again"], parse_mode=ParseMode.HTML)
+        update.message.reply_text(data.messages[context.user_data["language"]]["try_again"], parse_mode=ParseMode.HTML)
         return
     if not context.user_data["admin"]:
-        update.message.reply_text(messages[context.user_data["language"]]["unworthy"], parse_mode=ParseMode.HTML)
+        update.message.reply_text(data.messages[context.user_data["language"]]["unworthy"], parse_mode=ParseMode.HTML)
         return
     file_id = ""
     file_name = ""
@@ -742,7 +520,7 @@ def upload_file(update: Update, context: CallbackContext):
     file.download(str(file_id_counter) + extension)
     file_id_counter += 1
     update.message.reply_text(
-        messages[context.user_data["language"]]["file_downloaded"], parse_mode=ParseMode.HTML
+        data.messages[context.user_data["language"]]["file_downloaded"], parse_mode=ParseMode.HTML
     )
     log.info(
         f"File {context.user_data['state'] + '_' + file_name} uploaded by {update.message.from_user.username}",
@@ -754,7 +532,7 @@ def upload_file(update: Update, context: CallbackContext):
 def button_press(update: Update, context: CallbackContext):
     if check_data(update, context):
         update.message.reply_text(
-            messages[context.user_data["language"]]["try_again"],
+            data.messages[context.user_data["language"]]["try_again"],
             parse_mode=ParseMode.HTML)
         return
     pressed_button = update.message.text
@@ -768,7 +546,7 @@ def button_press(update: Update, context: CallbackContext):
     elif pressed_button == reset_pass:
         if not context.user_data["admin"]:
             update.message.reply_text(
-                messages[context.user_data["language"]]["unworthy"],
+                data.messages[context.user_data["language"]]["unworthy"],
                 parse_mode=ParseMode.HTML)
             return
         context.user_data["state"] = "start"
@@ -785,7 +563,7 @@ def button_press(update: Update, context: CallbackContext):
         keyboard_layout = {"start": []}
         reply_markup = get_keyboard_markup(context)
         update.message.reply_text(
-            messages[context.user_data["language"]]["reset"],
+            data.messages[context.user_data["language"]]["reset"],
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML)
         save()
@@ -793,14 +571,14 @@ def button_press(update: Update, context: CallbackContext):
     elif pressed_button == "Download File":
         if context.user_data["state"] not in name_convert['state_to_idfilename']:
             update.message.reply_text(
-                messages[context.user_data["language"]]["no_file_for_state"],
+                data.messages[context.user_data["language"]]["no_file_for_state"],
                 parse_mode=ParseMode.HTML)
             return
         file_id = name_convert['state_to_idfilename'][
             context.user_data["state"]]
         if not os.path.exists(file_id):
             update.message.reply_text(
-                messages[context.user_data["language"]]["no_file_for_state"],
+                data.messages[context.user_data["language"]]["no_file_for_state"],
                 parse_mode=ParseMode.HTML)
             return
         original_name = name_convert['idfilename_to_orname'][file_id]
@@ -834,12 +612,12 @@ def button_press(update: Update, context: CallbackContext):
     reply_markup = get_keyboard_markup(context)
     if context.user_data["state"] == "start":
         update.message.reply_text(
-            messages[context.user_data["language"]]["choose_option"],
+            data.messages[context.user_data["language"]]["choose_option"],
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML)
     else:
         update.message.reply_text(
-            messages[context.user_data["language"]]["button_pressed"].format(
+            data.messages[context.user_data["language"]]["button_pressed"].format(
                 pressed_button=pressed_button),
             reply_markup=reply_markup,
             parse_mode=ParseMode.HTML)
@@ -847,15 +625,15 @@ def button_press(update: Update, context: CallbackContext):
 
 def select_language(update: Update, context: CallbackContext):
     selected_language = update.message.text.lower()
-    if selected_language in messages:
+    if selected_language in data.messages:
         context.user_data["language"] = selected_language
         update.message.reply_text(
-            messages[context.user_data["language"]]["lang_changed"],
+            data.messages[context.user_data["language"]]["lang_changed"],
             reply_markup=get_keyboard_markup(context),
             parse_mode=ParseMode.HTML)
     else:
         update.message.reply_text(
-            messages[context.user_data["language"]]["lang_not_supported"],
+            data.messages[context.user_data["language"]]["lang_not_supported"],
             reply_markup=get_keyboard_markup(context),
             parse_mode=ParseMode.HTML)
     return ConversationHandler.END
@@ -864,7 +642,7 @@ def select_language(update: Update, context: CallbackContext):
 def set_language(update: Update, context: CallbackContext):
     check_data(update, context)
     update.message.reply_text(
-        messages[context.user_data["language"]]["choose_lang"],
+        data.messages[context.user_data["language"]]["choose_lang"],
         reply_markup=get_language_markup(),
         parse_mode=ParseMode.HTML)
     return SET_LANGUAGE
@@ -919,10 +697,12 @@ def check_data(update: Update, context: CallbackContext):
 
 # Function to handle user commands
 def handle_command_list(user_role):
+    commands = []
     if user_role:
-         print("show user commands.")
+         commands
     elif user_role:
          print("show admin commands.")
+    bot.set_my_commands(commands)
 
 def start(update: Update, context: CallbackContext):
     global unsubscribers, subscribers, keyboard_layout, log
@@ -944,11 +724,11 @@ def start(update: Update, context: CallbackContext):
             extra={"action": "USER_ADD"},
         )
     reply_markup = get_keyboard_markup(context)
-    update.message.reply_text(messages[context.user_data["language"]]["hello"],
+    update.message.reply_text(data.messages[context.user_data["language"]]["hello"],
                               reply_markup=reply_markup,
                               parse_mode=ParseMode.HTML)
     update.message.reply_text(
-        messages[context.user_data["language"]]["choose_option"],
+        data.messages[context.user_data["language"]]["choose_option"],
         parse_mode=ParseMode.HTML)
 
 # /update command
