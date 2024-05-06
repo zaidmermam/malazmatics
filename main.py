@@ -1,14 +1,16 @@
-### الحمدلله if you can see me its working
-### beeb boob
+from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Bot, ParseMode
+import asyncio
+import os
+import logging
+import yaml
+import requests
 import mimetypes
 import subprocess
 import data
-
-from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Bot, BotCommand, ParseMode
-import os
-import logging
+import google.generativeai as genai
+from apscheduler.schedulers.background import BackgroundScheduler
 from datetime import datetime, timedelta
-import yaml
+from pytz import timezone
 from telegram.ext import (
     Updater,
     CommandHandler,
@@ -18,20 +20,19 @@ from telegram.ext import (
     ConversationHandler,
 )
 
-keyboard_layout = {
-    "start": [],
-}
 TOKEN = "6885894371:AAGNeZK41ncT01_hTYCrKzodSDdyCzROHyk"
 bot = Bot(TOKEN)
 SAVE_FILE = "savefile.yaml"
 LOGGING_FILE = "bot_logs.yaml"
 ADD_REMOVE = 1
-file_id_counter = 1
 SET_LANGUAGE = 2
 password = "Lime"
 reset_pass = "ResetMe420UwU"
 unsubscribers = set()
 subscribers = set()
+keyboard_layout = {
+    "start": [],
+}
 preserved_names = [
     "cancel",
     "add/remove",
@@ -40,35 +41,57 @@ preserved_names = [
     password,
     reset_pass,
 ]
-upcoming_events = [{
-    "date": datetime(1980, 1, 1),
-    "name": "??!?",
-    "dayofweek": 0
-}]
+upcoming_events = [{"date": datetime(1980, 1, 1), "name": "??!?", "dayofweek": 0}]
 name_convert = {
     "state_to_idfilename": {"start.": "0.ext"},
     "idfilename_to_orname": {"0.ext": "0.ext"},
+    "file_id_counter": 1,
 }
-week_days = {
-    "english": {
-        0: "Sunday",
-        1: "Monday",
-        2: "Tuesday",
-        3: "Wednesday",
-        4: "Thursday",
-        5: "Friday",
-        6: "Saturday",
-    },
-    "arabic": {
-        0: "الاحد",
-        1: "الاثنين",
-        2: "الثلاثاء",
-        3: "الاربعاء",
-        4: "الخميس",
-        5: "الجمعة",
-        6: "السبت",
-    },
-}
+verse = "بِسْمِ اللَّـهِ الرَّحْمَـٰنِ الرَّحِيمِ"
+
+
+def ask_gemini(update: Update, context: CallbackContext):
+    check_data(update, context)
+    args = context.args
+    if "history" not in context.user_data:
+        init_gemini(context)
+    if len(args) > 0:
+        prompt = " ".join(args[0:])
+        response = chat.send_message(prompt)
+        update.message.reply_text(response.text)
+    else:
+        update.message.reply_text(data.messages[context.user_data["language"]]["ask_args"])
+
+
+def init_gemini(context: CallbackContext):
+    global model, chat
+    genai.configure(api_key="AIzaSyDY2kUie7u-eCj2RiUfhuuAHdwIpyvFVZU")
+    model = genai.GenerativeModel('gemini-pro')
+    context.user_data["history"] = []
+    chat = model.start_chat(history=context.user_data["history"])
+
+
+def get_verse(update: Update, context: CallbackContext):
+    check_data(update, context)
+    update.message.reply_text(data.messages["arabic"]["verse_OTD"])
+    update.message.reply_text(verse)
+
+
+def verse_OTD(context: CallbackContext):
+    global subscribers, verse
+    url = "https://api.quran.com/api/v4/verses/random"
+    payload = {}
+    headers = {"Accept": "application/json"}
+    response = requests.request("GET", url, headers=headers, data=payload)
+    verse_data = response.json()
+    verse_key = verse_data["verse"]["verse_key"].split(":")
+    url = f"https://api.quran-tafseer.com/quran/{verse_key[0]}/{verse_key[1]}"
+    response = requests.request("GET", url, headers=headers, data=payload)
+    verse_data = response.json()
+    verse = verse_data["text"]
+    for ID in subscribers:
+        context.bot.send_message(chat_id=ID, text=data.messages["arabic"]["verse_OTD"])
+        context.bot.send_message(chat_id=ID, text=verse)
 
 
 def help_message(update, context):
@@ -101,17 +124,19 @@ def setup_logger(log_filename):
                 "Module": record.module,
                 "Message": record.getMessage(),
             }
-            standard_attributes = set(vars(logging.LogRecord('', 0, '', 0, '', (), None)))
+            standard_attributes = set(
+                vars(logging.LogRecord("", 0, "", 0, "", (), None))
+            )
             extra_attributes = {
-                key: value for key, value in record.__dict__.items()
+                key: value
+                for key, value in record.__dict__.items()
                 if key not in standard_attributes
             }
             log_entry.update(extra_attributes)
 
-            return yaml.dump(log_entry,
-                             default_flow_style=False,
-                             indent=4,
-                             sort_keys=False)
+            return yaml.dump(
+                log_entry, default_flow_style=False, indent=4, sort_keys=False
+            )
 
     yaml_formatter = CustomYamlFormatter()
     file_handler.setFormatter(yaml_formatter)
@@ -122,6 +147,21 @@ def setup_logger(log_filename):
     return logger
 
 
+def clear_events(update: Update, context: CallbackContext):
+    check_data(update, context)
+    if not context.user_data["admin"]:
+        update.message.reply_text(data.messages[context.user_data["language"]]["unworthy"])
+        return
+    global upcoming_events
+    upcoming_events = [{"date": datetime(1980, 1, 1), "name": "??!?", "dayofweek": 0}]
+    update.message.reply_text(data.messages[context.user_data["language"]]["update_success"])
+    save()
+    log.info(
+        f"User: {update.message.from_user.username} cleared upcoming events.",
+        extra={"action": "EVENT_CLEAR"},
+    )
+
+
 def set_upcoming(update, context):
     global upcoming_events
     upcoming_events = list(upcoming_events)
@@ -129,20 +169,22 @@ def set_upcoming(update, context):
     if not context.user_data["admin"]:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["unworthy"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return
     try:
         message_parts = update.message.text.split(" ")
         temp = {
             "name": " ".join(message_parts[2:]),
-            "date": datetime.strptime(message_parts[1], "%Y-%m-%d")
+            "date": datetime.strptime(message_parts[1], "%Y-%m-%d"),
         }
-        if temp["date"].strftime('%Y-%m-%d') < datetime.today().strftime('%Y-%m-%d'):
+        if temp["date"].strftime("%Y-%m-%d") < datetime.today().strftime("%Y-%m-%d"):
             update.message.reply_text(
                 data.messages[context.user_data["language"]]["upset_past"],
-                parse_mode=ParseMode.HTML)
+                parse_mode=ParseMode.HTML,
+            )
             return
-        temp["dayofweek"] = int(temp["date"].strftime('%w'))
+        temp["dayofweek"] = int(temp["date"].strftime("%w"))
         left = 0
         right = len(upcoming_events) - 1
         while left <= right:
@@ -156,18 +198,22 @@ def set_upcoming(update, context):
             data.messages[context.user_data["language"]]["upcoming_set"].format(
                 event_name=upcoming_events[left]["name"],
                 event_date=upcoming_events[left]["date"].strftime("%Y-%m-%d"),
-                day_of_week=week_days[context.user_data["language"]][
-                    upcoming_events[left]["dayofweek"]],
+                day_of_week=data.week_days[context.user_data["language"]][
+                    upcoming_events[left]["dayofweek"]
+                ],
             ),
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         log.info(
             f"User: {update.message.from_user.username} set upcoming event: {upcoming_events[left]['name']}",
-            extra={"action": "EVENT_SET"})
+            extra={"action": "EVENT_SET"},
+        )
     except Exception as e:
         print(e)
         update.message.reply_text(
             data.messages[context.user_data["language"]]["upcoming_args"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
     save()
 
 
@@ -178,30 +224,35 @@ def upcoming(update, context):
     toremove = []
     cnt = 0
     for i, event in enumerate(upcoming_events):
-        if event["date"].strftime('%Y-%m-%d') < datetime.today().strftime(
-                '%Y-%m-%d'):
+        if event["date"].strftime("%Y-%m-%d") < datetime.today().strftime("%Y-%m-%d"):
             if event["name"] != "??!?":
                 toremove.append(i)
             continue
         cnt += 1
         delta = event["date"] - datetime.today() + timedelta(days=1)
-        message += data.messages[
-            context.user_data["language"]]["upcoming_event"].format(
+        message += data.messages[context.user_data["language"]]["upcoming_event"].format(
             event_name=event["name"],
-            day_of_week=week_days[context.user_data["language"]][
-                event["dayofweek"]],
-            event_date=event["date"].strftime('%d/%m/%Y'),
+            day_of_week=data.week_days[context.user_data["language"]][event["dayofweek"]],
+            event_date=event["date"].strftime("%d/%m/%Y"),
             days_left=delta.days,
         )
-        message += '\n\n'
+        message += "\n\n"
     for i in reversed(range(len(toremove))):
         upcoming_events.pop(toremove[i])
     if cnt == 0:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["no_events"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return
     update.message.reply_text(message, parse_mode=ParseMode.HTML)
+
+
+async def send_user(context, ID, message):
+    try:
+        await context.bot.send_message(chat_id=ID, text=message, parse_mode=ParseMode.HTML)
+    except Exception as e:
+        print(e)
 
 
 def send_all(update: Update, context: CallbackContext):
@@ -213,25 +264,23 @@ def send_all(update: Update, context: CallbackContext):
         if len(message_parts) <= 1:
             update.message.reply_text(
                 data.messages[context.user_data["language"]]["sendall_args"],
-                parse_mode=ParseMode.HTML)
+                parse_mode=ParseMode.HTML,
+            )
             return
         message = message_parts[1]
+        for index, ID in enumerate(subscribers):
+            context.job_queue.run_once(
+                lambda ctx: asyncio.run(send_user(ctx, ID, message)), when=index * 1 / 25  # 25 requests every 1 second
+            )
         log.info(
             f"User {bot.get_chat(user).username} has sent a global message. message='{message}'",
             extra={"action": "GLOBAL_MES"},
         )
-        for ID in subscribers:
-            try:
-                context.bot.send_message(chat_id=ID,
-                                         text=message,
-                                         parse_mode=ParseMode.HTML)
-            except Exception as e:
-                print(e)
-                pass
     else:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["unworthy"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
 
 
 def subscribe(update: Update, context: CallbackContext):
@@ -242,8 +291,8 @@ def subscribe(update: Update, context: CallbackContext):
     subscribers.add(user)
     save()
     update.message.reply_text(
-        data.messages[context.user_data["language"]]["subbed"],
-        parse_mode=ParseMode.HTML)
+        data.messages[context.user_data["language"]]["subbed"], parse_mode=ParseMode.HTML
+    )
     log.info(
         f"user: {bot.get_chat(user).username} has subscribed!",
         extra={"action": "USER_SUB"},
@@ -259,7 +308,8 @@ def unsubscribe(update: Update, context: CallbackContext):
     save()
     update.message.reply_text(
         data.messages[context.user_data["language"]]["unsubbed"],
-        parse_mode=ParseMode.HTML)
+        parse_mode=ParseMode.HTML,
+    )
     log.info(
         f"user: {bot.get_chat(user).username} has unsubscribed..",
         extra={"action": "USER_UNSUB"},
@@ -271,11 +321,13 @@ def reset(update: Update, context: CallbackContext):
     if context.user_data["admin"]:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["reset_pass"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
     else:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["unworthy"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
 
 
 def save():
@@ -283,8 +335,7 @@ def save():
     file_path = SAVE_FILE
 
     serializable_keyboard_configurations = {
-        state: [[button.text for button in button_row]
-                for button_row in buttons]
+        state: [[button.text for button in button_row] for button_row in buttons]
         for state, buttons in keyboard_layout.items()
     }
 
@@ -294,7 +345,6 @@ def save():
         "subs": subscribers,
         "upcoming": upcoming_events,
         "name_convert": name_convert,
-        "file_id_counter": file_id_counter,
     }
 
     with open(file_path, "w") as file:
@@ -302,25 +352,25 @@ def save():
 
 
 def load():
-    global SAVE_FILE, unsubscribers, subscribers, upcoming_events, keyboard_layout, file_id_counter, name_convert, log
+    global SAVE_FILE, unsubscribers, subscribers, upcoming_events, keyboard_layout, name_convert, log
     try:
         file_path = SAVE_FILE
         with open(file_path, "r") as file:
-            data = yaml.safe_load(file)
+            loaded_data = yaml.safe_load(file)
 
-        keyboard_configurations = data.get("keyboard", {})
+        keyboard_configurations = loaded_data.get("keyboard", {})
         keyboard_configurations_original = {}
         for state, buttons in keyboard_configurations.items():
-            original_buttons = [[KeyboardButton(text) for text in button_row]
-                                for button_row in buttons]
+            original_buttons = [
+                [KeyboardButton(text) for text in button_row] for button_row in buttons
+            ]
             keyboard_configurations_original[state] = original_buttons
         keyboard_layout = keyboard_configurations_original
 
-        unsubscribers = set(data.get("unsubs", {}))
-        subscribers = set(data.get("subs", {}))
-        upcoming_events = data.get("upcoming", {})
-        name_convert = data.get("name_convert", {})
-        file_id_counter = data.get("file_id_counter", 1)
+        unsubscribers = set(loaded_data.get("unsubs", {}))
+        subscribers = set(loaded_data.get("subs", {}))
+        upcoming_events = loaded_data.get("upcoming", {})
+        name_convert = loaded_data.get("name_convert", {})
     except Exception as e:
         log.warning(
             f"Error loading configurations: {e}",
@@ -329,30 +379,28 @@ def load():
         keyboard_layout = {"start": []}
         unsubscribers = set()
         subscribers = set()
-        upcoming_events = [{
-            "date": datetime(1980, 1, 1),
-            "name": "??!?",
-            "dayofweek": 0
-        }]
+        upcoming_events = [
+            {"date": datetime(1980, 1, 1), "name": "??!?", "dayofweek": 0}
+        ]
         name_convert = {
             "state_to_idfilename": {"start.": "0.ext"},
-            "idfilename_to_orname": {"0.ext": "0.ext"}
+            "idfilename_to_orname": {"0.ext": "0.ext"},
+            "file_id_counter": 1,
         }
-        file_id_counter = 1
         save()
 
 
 def remove_branches(branch_state):
     for row in keyboard_layout[branch_state]:
         for button in row:
-            remove_branches(branch_state + '_' + button.text)
-    if branch_state in name_convert['state_to_idfilename']:
+            remove_branches(branch_state + "_" + button.text)
+    if branch_state in name_convert["state_to_idfilename"]:
         script_directory = os.path.dirname(os.path.realpath(__file__))
-        file_name = name_convert['state_to_idfilename'][branch_state]
+        file_name = name_convert["state_to_idfilename"][branch_state]
         if os.path.exists(os.path.join(script_directory, file_name)):
             os.remove(os.path.join(script_directory, file_name))
-        name_convert['state_to_idfilename'].pop(branch_state, None)
-        name_convert['idfilename_to_orname'].pop(file_name, None)
+        name_convert["state_to_idfilename"].pop(branch_state, None)
+        name_convert["idfilename_to_orname"].pop(file_name, None)
     keyboard_layout.pop(branch_state, None)
 
 
@@ -360,17 +408,20 @@ def add_remove(update: Update, context: CallbackContext):
     if check_data(update, context):
         update.message.reply_text(
             data.messages[context.user_data["language"]]["try_again"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return
     if context.user_data["admin"]:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["add_remove_prompt"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return ADD_REMOVE
     else:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["unworthy"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return
 
 
@@ -378,7 +429,8 @@ def receive_button_name(update: Update, context: CallbackContext):
     if check_data(update, context):
         update.message.reply_text(
             data.messages[context.user_data["language"]]["try_again"],
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
         return
     global password
     global keyboard_layout
@@ -393,7 +445,8 @@ def receive_button_name(update: Update, context: CallbackContext):
         if name.lower() in preserved_names:
             update.message.reply_text(
                 data.messages[context.user_data["language"]]["cancelled"],
-                parse_mode=ParseMode.HTML)
+                parse_mode=ParseMode.HTML,
+            )
             continue
         updated = True
         ind = 0
@@ -411,43 +464,37 @@ def receive_button_name(update: Update, context: CallbackContext):
             keyboard_layout[state + "_" + name] = []
             update.message.reply_text(
                 data.messages[context.user_data["language"]]["button_added"].format(
-                    button_name=name),
-                parse_mode=ParseMode.HTML)
+                    button_name=name
+                ),
+                parse_mode=ParseMode.HTML,
+            )
             log.info(
                 f"Button configurations changed by {update.message.from_user.username}",
-                extra={
-                    "action": "ADD",
-                    "button": name
-                },
+                extra={"action": "ADD", "button": name},
             )
             save()
         else:  # remove this button from its place
             removed_button_name = keyboard_layout[state][row].pop(ind).text
-            if len(keyboard_layout[state]
-                   [row]) == 0:  # if row becomes empty remove it
+            if len(keyboard_layout[state][row]) == 0:  # if row becomes empty remove it
                 keyboard_layout[state].pop(row)
-            removed_state = context.user_data["state"] + '_' + removed_button_name
+            removed_state = context.user_data["state"] + "_" + removed_button_name
             remove_branches(removed_state)
             update.message.reply_text(
-                data.messages[context.user_data["language"]]
-                ["button_removed"].format(button_name=removed_button_name),
-                parse_mode=ParseMode.HTML)
+                data.messages[context.user_data["language"]]["button_removed"].format(
+                    button_name=removed_button_name
+                ),
+                parse_mode=ParseMode.HTML,
+            )
             log.info(
                 f"Button configurations changed by {update.message.from_user.username}",
-                extra={
-                    "action": "REMOVE",
-                    "button": name
-                },
+                extra={"action": "REMOVE", "button": name},
             )
             save()
     while len(keyboard_layout[state]) and len(keyboard_layout[state][-1]) == 0:
         keyboard_layout[state].pop()
         log.info(
             f"Button configurations changed by system",
-            extra={
-                "action": "REMOVE",
-                "button": "Empty rows"
-            },
+            extra={"action": "REMOVE", "button": "Empty rows"},
         )
         save()
     if not updated:
@@ -456,12 +503,13 @@ def receive_button_name(update: Update, context: CallbackContext):
     update.message.reply_text(
         data.messages[context.user_data["language"]]["update_success"],
         reply_markup=reply_markup,
-        parse_mode=ParseMode.HTML)
+        parse_mode=ParseMode.HTML,
+    )
     return ConversationHandler.END
 
 
 def upload_file(update: Update, context: CallbackContext):
-    global file_id_counter, name_convert
+    global name_convert
     if check_data(update, context):
         update.message.reply_text(data.messages[context.user_data["language"]]["try_again"], parse_mode=ParseMode.HTML)
         return
@@ -475,11 +523,11 @@ def upload_file(update: Update, context: CallbackContext):
     if update.message.photo:
         needs_extension = True
         file_id = update.message.photo[-1].file_id
-        file_name = str(file_id_counter)
+        file_name = str(name_convert['file_id_counter'])
     elif update.message.video:
         needs_extension = True
         file_id = update.message.video.file_id
-        file_name = str(file_id_counter)
+        file_name = str(name_convert['file_id_counter'])
     elif update.message.audio:
         file_id = update.message.audio.file_id
         file_name = update.message.audio.file_name
@@ -490,16 +538,16 @@ def upload_file(update: Update, context: CallbackContext):
         needs_extension = True
         file_id = update.message.voice.file_id
         extension = ".mp3"
-        file_name = str(file_id_counter)
+        file_name = str(name_convert['file_id_counter'])
     elif update.message.sticker:
         needs_extension = True
         file_id = update.message.sticker.file_id
-        file_name = str(file_id_counter)
+        file_name = str(name_convert['file_id_counter'])
     elif update.message.video_note:
         needs_extension = True
         file_id = update.message.sticker.file_id
         extension = ".mp4"
-        file_name = str(file_id_counter)
+        file_name = str(name_convert['file_id_counter'])
     else:
         update.message.reply_text("File type currently not supported", parse_mode=ParseMode.HTML)
         return
@@ -514,10 +562,10 @@ def upload_file(update: Update, context: CallbackContext):
         if os.path.exists(os.path.join(script_directory, old_file_name)):
             os.remove(os.path.join(script_directory, old_file_name))
         name_convert['idfilename_to_orname'].pop(old_file_name, None)
-    name_convert['state_to_idfilename'][context.user_data["state"]] = str(file_id_counter) + extension
-    name_convert['idfilename_to_orname'][str(file_id_counter) + extension] = file_name
-    file.download(str(file_id_counter) + extension)
-    file_id_counter += 1
+    name_convert['state_to_idfilename'][context.user_data["state"]] = str(name_convert['file_id_counter']) + extension
+    name_convert['idfilename_to_orname'][str(name_convert['file_id_counter']) + extension] = file_name
+    file.download(str(name_convert['file_id_counter']) + extension)
+    name_convert['file_id_counter'] += 1
     update.message.reply_text(
         data.messages[context.user_data["language"]]["file_downloaded"], parse_mode=ParseMode.HTML
     )
@@ -535,7 +583,7 @@ def button_press(update: Update, context: CallbackContext):
             parse_mode=ParseMode.HTML)
         return
     pressed_button = update.message.text
-    global password, reset_pass, keyboard_layout, name_convert, file_id_counter
+    global password, reset_pass, keyboard_layout, name_convert
     if pressed_button == password:
         context.user_data["admin"] = True
         log.info(
@@ -554,10 +602,10 @@ def button_press(update: Update, context: CallbackContext):
             if file.endswith(".py") or file.endswith(".yaml"):
                 continue
             os.remove(os.path.join(script_directory, file))
-        file_id_counter = 1
         name_convert = {
             "state_to_idfilename": {"start.": "0.ext"},
-            "idfilename_to_orname": {"0.ext": "0.ext"}
+            "idfilename_to_orname": {"0.ext": "0.ext"},
+            'file_id_counter': 1
         }
         keyboard_layout = {"start": []}
         reply_markup = get_keyboard_markup(context)
@@ -629,12 +677,14 @@ def select_language(update: Update, context: CallbackContext):
         update.message.reply_text(
             data.messages[context.user_data["language"]]["lang_changed"],
             reply_markup=get_keyboard_markup(context),
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
     else:
         update.message.reply_text(
             data.messages[context.user_data["language"]]["lang_not_supported"],
             reply_markup=get_keyboard_markup(context),
-            parse_mode=ParseMode.HTML)
+            parse_mode=ParseMode.HTML,
+        )
     return ConversationHandler.END
 
 
@@ -643,16 +693,15 @@ def set_language(update: Update, context: CallbackContext):
     update.message.reply_text(
         data.messages[context.user_data["language"]]["choose_lang"],
         reply_markup=get_language_markup(),
-        parse_mode=ParseMode.HTML)
+        parse_mode=ParseMode.HTML,
+    )
     return SET_LANGUAGE
 
 
 def get_language_markup():
     languages = ["English", "Arabic"]
     keyboard = [[KeyboardButton(lang)] for lang in languages]
-    return ReplyKeyboardMarkup(keyboard,
-                               resize_keyboard=True,
-                               one_time_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
 def get_keyboard_markup(context: CallbackContext):
@@ -666,33 +715,49 @@ def get_keyboard_markup(context: CallbackContext):
         if state.endswith("."):
             if context.user_data["admin"]:
                 keyboard.append([KeyboardButton("Download File")])
-                keyboard.append(
-                    [KeyboardButton("Add/Remove"),
-                     KeyboardButton("عودة")])
+                keyboard.append([KeyboardButton("Add/Remove"), KeyboardButton("عودة")])
             else:
                 keyboard.append(
-                    [KeyboardButton("Download File"),
-                     KeyboardButton("عودة")])
+                    [KeyboardButton("Download File"), KeyboardButton("عودة")]
+                )
         else:
             if context.user_data["admin"]:
-                keyboard.append(
-                    [KeyboardButton("Add/Remove"),
-                     KeyboardButton("عودة")])
+                keyboard.append([KeyboardButton("Add/Remove"), KeyboardButton("عودة")])
             else:
                 keyboard.append([KeyboardButton("عودة")])
 
-    return ReplyKeyboardMarkup(keyboard,
-                               resize_keyboard=True,
-                               one_time_keyboard=True)
+    return ReplyKeyboardMarkup(keyboard, resize_keyboard=True, one_time_keyboard=True)
 
 
 def check_data(update: Update, context: CallbackContext):
-    if ("language" not in context.user_data or "admin" not in context.user_data
+    if (
+            "language" not in context.user_data
+            or "admin" not in context.user_data
             or "id" not in context.user_data
-            or "state" not in context.user_data):
+            or "state" not in context.user_data
+    ):
         start(update, context)
         return True
     return False
+
+
+def update_bot(update, context):
+    check_data(update, context)
+    if not context.user_data["admin"]:
+        update.message.reply_text(data.messages[context.user_data["language"]]["unworthy"])
+        return
+    try:
+        subprocess.run(["/home/zaid/update_bot.sh"])
+        context.bot.send_message(
+            chat_id=update.effective_chat.id, text="Updating bot's code..."
+        )
+    except Exception as e:
+        print(e)
+        context.bot.send_message(
+            chat_id=update.effective_chat.id,
+            text="You don't seem to be hosting the bot on the linux server.",
+        )
+
 
 def start(update: Update, context: CallbackContext):
     global unsubscribers, subscribers, keyboard_layout, log
@@ -705,30 +770,25 @@ def start(update: Update, context: CallbackContext):
     context.user_data["id"] = update.message.from_user.id
     context.user_data["admin"] = False
     context.user_data["state"] = "start"
-    handle_command_list(context.user_data["admin"], );
-    if (context.user_data["id"] not in unsubscribers
-            and context.user_data["id"] not in subscribers):
+    if (
+            context.user_data["id"] not in unsubscribers
+            and context.user_data["id"] not in subscribers
+    ):
         subscribe(update, context)
         log.info(
             f"user: {update.message.from_user.username} added",
             extra={"action": "USER_ADD"},
         )
     reply_markup = get_keyboard_markup(context)
-    update.message.reply_text(data.messages[context.user_data["language"]]["hello"],
-                              reply_markup=reply_markup,
-                              parse_mode=ParseMode.HTML)
+    update.message.reply_text(
+        data.messages[context.user_data["language"]]["hello"],
+        reply_markup=reply_markup,
+        parse_mode=ParseMode.HTML,
+    )
     update.message.reply_text(
         data.messages[context.user_data["language"]]["choose_option"],
-        parse_mode=ParseMode.HTML)
-
-# /update command
-def update_bot(update, context):
-    # Send a message indicating the update process
-    try:
-        subprocess.run(['/home/zaid/update_bot.sh'])
-        context.bot.send_message(chat_id=update.effective_chat.id, text="Updating bot's code...")
-    except Exception as e:
-        context.bot.send_message(chat_id=update.effective_chat.id, text="You don't seem to be hosting the bot on the linux server.")
+        parse_mode=ParseMode.HTML,
+    )
 
 
 def main():
@@ -744,21 +804,22 @@ def main():
         ],
         states={
             ADD_REMOVE: [
-                MessageHandler(Filters.text & ~Filters.command,
-                               receive_button_name)
+                MessageHandler(Filters.text & ~Filters.command, receive_button_name)
             ],
-            SET_LANGUAGE:
-                [MessageHandler(Filters.text & ~Filters.command, select_language)],
+            SET_LANGUAGE: [
+                MessageHandler(Filters.text & ~Filters.command, select_language)
+            ],
         },
         fallbacks=[],
     )
-    update_handler = CommandHandler('update_code', update_bot)
-    dp.add_handler(
-        MessageHandler(Filters.document | Filters.photo | Filters.audio | Filters.video | Filters.voice |
-                       Filters.animation | Filters.sticker | Filters.video_note, upload_file))
+    scheduler = BackgroundScheduler(timezone=timezone("Etc/GMT-3"))
+    scheduler.add_job(
+        verse_OTD, "cron", hour=6, minute=0, args=[CallbackContext(updater.dispatcher)]
+    )
+    scheduler.start()
+    dp.add_handler(MessageHandler(Filters.document | Filters.photo, upload_file))
     dp.add_handler(conv_handler)
     dp.add_handler(CommandHandler("start", start))
-    dp.add_handler(update_handler)
     dp.add_handler(CommandHandler("unsub", unsubscribe))
     dp.add_handler(CommandHandler("sub", subscribe))
     dp.add_handler(CommandHandler("help", help_message))
@@ -766,8 +827,11 @@ def main():
     dp.add_handler(CommandHandler("reset", reset))
     dp.add_handler(CommandHandler("upset", set_upcoming))
     dp.add_handler(CommandHandler("upcoming", upcoming))
-    dp.add_handler(
-        MessageHandler(Filters.text & ~Filters.command, button_press))
+    dp.add_handler(CommandHandler("ask", ask_gemini))
+    dp.add_handler(CommandHandler("getverse", get_verse))
+    dp.add_handler(CommandHandler("clear_events", clear_events))
+    dp.add_handler(CommandHandler("update_code", update_bot))
+    dp.add_handler(MessageHandler(Filters.text & ~Filters.command, button_press))
 
     updater.start_polling()
     updater.idle()
