@@ -1,3 +1,6 @@
+import mimetypes
+import subprocess
+
 from telegram import Update, ReplyKeyboardMarkup, KeyboardButton, Bot, ParseMode
 import os
 import logging
@@ -15,7 +18,7 @@ from telegram.ext import (
 keyboard_layout = {
     "start": [],
 }
-TOKEN = "7051518247:AAHCsgyTBK6aInukY1yR9kmeEs5YGyiXPPg"
+TOKEN = "7118089972:AAGeuHugpqcbDPNqVptKxtBdb66EcSaOEmY"
 bot = Bot(TOKEN)
 SAVE_FILE = "savefile.yaml"
 LOGGING_FILE = "bot_logs.yaml"
@@ -26,6 +29,8 @@ password = "Lime"
 reset_pass = "ResetMe420UwU"
 unsubscribers = set()
 subscribers = set()
+regular_user_commands = ['/start', '/help', '/upcoming']
+admin_commands = ['/start', '/help', '/upcoming', '/upset', '/sendall']
 preserved_names = [
     "cancel",
     "add/remove",
@@ -197,9 +202,9 @@ To reset the bot. Be careful and 100% sure you want to delete all files and butt
         "help":
             '''💫 اهلاً بك في بوت مدرسة نجوم سورية! 
 هذا البوت سيساعدك في الحصول على أحدث أخبارنا، و إيجاد كل ما تحتاجه من أوراق العمل، شرح للدروس، أسئلة دورات, وأكثر!
-    
+
 💫 الأوامر الأساسية:
-    
+
 🌟 /start - لإعادة تشغيل البوت
 🌟 /setlang - لتغيير لغة البوت
 🌟 /sub - للاشتراك بأخبارنا وإعلاناتنا
@@ -213,7 +218,7 @@ https://www.facebook.com/profile.php?id=100071613814495
 📌 الموقع: 
 https://maps.app.goo.gl/iVrceWoGB4xksFiA8
 نفتح بين الساعة 8 صباحاً و ال1 ظهراً في أيام الدوام.
-    
+
 📌 مبرمجو البوت:
 @Sir_lime @SimaSandouk @ZaidKhorsi @Abdullah_Kassar
 يمكنك التواصل معنا للإبلاغ عن مشكلة او طلب ميزة جديدة.
@@ -224,23 +229,23 @@ https://maps.app.goo.gl/iVrceWoGB4xksFiA8
 لإضافة زر: ادخل اسم الزر الجديد الذي تريد إضافته, هذا الاسم يجب أن يكون مختلفاً عن باقي الأسماء في القائمة الحالية, يمكنك إضافة أكثر من زر إلى نفس الصف من خلال كتابة أسمائهم مع وضع فاصلة <code>,</code> بينهم.
  لحذف زر: ادخل اسم الزر الذي تريد حذفه في القائمة الحالية, سيتم حذف الزر مع جميع الأزرار التي بداخل هذا الزر, يجب أن تتطابق الأسماء لتتم عملية الحذف.
 للخروج من هذه التعليمة: قم بإرسال: <code>cancel</code>
-    
+
 ⚙️ /sendall ~الرسالة التي تريد ارسالها~
 لإرسال الرسالة المحددة إلى جميع المستخدمين المشتركين في الأخبار.
-    
+
 ⚙️ /upset ~تاريخ الحدث بصيغة <b>YYYY-MM-DD</b>~ ~اسم الحدث~
 لتعيين حدث جديد في التاريخ المعين.
 مثال:
 <code>/upset 2025-04-17 عطلة عيد الجلاء</code>
-    
+
 ⚙️ /reset
 لإعادة ضبط البوت. كن حذراً وواثقاً تماماً أنك تريد حذف جميع الأزرار و الملفات قبل القيام بهذه العملية.
-    
+
 🛠 لرفع ملف:
 1 - أضف الزر الذي تريد أن يُرسِل الملف في المكان المطلوب مع اسمه ملحوقاً بنقطة <code>.</code> .
 2 - ادخل إلى الزر الجديد المنتهي اسمه بنقطة ثم أرسل الملف المطلوب.
  3 - يمكنك الآن تنزيل الملف من خلال زر <code>Download File</code>.
-    
+
 ''',
         "subbed":
             "تم الاشتراك باخبارنا و اعلاناتنا بنجاح.",
@@ -685,23 +690,45 @@ def upload_file(update: Update, context: CallbackContext):
     if not context.user_data["admin"]:
         update.message.reply_text(messages[context.user_data["language"]]["unworthy"], parse_mode=ParseMode.HTML)
         return
-    file_id = None
+    file_id = ""
     file_name = ""
-    is_photo = False
-    if update.message.document:
-        file_id = update.message.document.file_id
-        file_name = update.message.document.file_name
-    elif update.message.photo:
-        is_photo = True
+    needs_extension = False
+    extension = ""
+    if update.message.photo:
+        needs_extension = True
         file_id = update.message.photo[-1].file_id
         file_name = str(file_id_counter)
-    if file_id is None:
-        update.message.reply_text(messages[context.user_data["language"]]["no_file_found"],
-                                  parse_mode=ParseMode.HTML)
+    elif update.message.video:
+        needs_extension = True
+        file_id = update.message.video.file_id
+        file_name = str(file_id_counter)
+    elif update.message.audio:
+        file_id = update.message.audio.file_id
+        file_name = update.message.audio.file_name
+    elif update.message.document:
+        file_id = update.message.document.file_id
+        file_name = update.message.document.file_name
+    elif update.message.voice:
+        needs_extension = True
+        file_id = update.message.voice.file_id
+        extension = ".mp3"
+        file_name = str(file_id_counter)
+    elif update.message.sticker:
+        needs_extension = True
+        file_id = update.message.sticker.file_id
+        file_name = str(file_id_counter)
+    elif update.message.video_note:
+        needs_extension = True
+        file_id = update.message.sticker.file_id
+        extension = ".mp4"
+        file_name = str(file_id_counter)
+    else:
+        update.message.reply_text("File type currently not supported", parse_mode=ParseMode.HTML)
         return
     file = context.bot.get_file(file_id)
-    extension = os.path.splitext(file.file_path)[1]
-    if is_photo:
+    if extension == "":
+        extension = os.path.splitext(file.file_path)[1]
+    if needs_extension:
         file_name = file_name + extension
     if context.user_data["state"] in name_convert['state_to_idfilename']:  # delete the old file before adding this one
         old_file_name = name_convert['state_to_idfilename'][context.user_data["state"]]
@@ -777,8 +804,17 @@ def button_press(update: Update, context: CallbackContext):
             return
         original_name = name_convert['idfilename_to_orname'][file_id]
         os.rename(file_id, original_name)
-        with open(original_name, "rb") as file:
-            update.message.reply_document(document=file)
+        file_type, _ = mimetypes.guess_type(original_name)
+        if file_type and file_type.startswith('image'):
+            update.message.reply_photo(photo=open(original_name, 'rb'))
+        elif file_type and file_type.startswith('video'):
+            update.message.reply_video(video=open(original_name, 'rb'))
+        elif file_type and file_type.startswith('audio'):
+            update.message.reply_audio(audio=open(original_name, 'rb'))
+        elif file_type and file_type.startswith('sticker'):
+            update.message.reply_sticker(sticker=open(original_name, 'rb'))
+        elif file_type:
+            update.message.reply_document(document=open(original_name, 'rb'))
         os.rename(original_name, file_id)
         log.info(
             f"File '{file_id}' downloaded by {update.message.from_user.username}",
@@ -880,6 +916,12 @@ def check_data(update: Update, context: CallbackContext):
         return True
     return False
 
+# Function to handle user commands
+def handle_command_list(user_role):
+    if user_role:
+         print("show user commands.")
+    elif user_role:
+         print("show admin commands.")
 
 def start(update: Update, context: CallbackContext):
     global unsubscribers, subscribers, keyboard_layout, log
@@ -892,6 +934,7 @@ def start(update: Update, context: CallbackContext):
     context.user_data["id"] = update.message.from_user.id
     context.user_data["admin"] = False
     context.user_data["state"] = "start"
+    handle_command_list(context.user_data["admin"], );
     if (context.user_data["id"] not in unsubscribers
             and context.user_data["id"] not in subscribers):
         subscribe(update, context)
@@ -906,6 +949,15 @@ def start(update: Update, context: CallbackContext):
     update.message.reply_text(
         messages[context.user_data["language"]]["choose_option"],
         parse_mode=ParseMode.HTML)
+
+# /update command
+def update_bot(update, context):
+    # Send a message indicating the update process
+    try:
+        subprocess.run(['/path/to/update_bot.sh'])
+        context.bot.send_message(chat_id=update.effective_chat.id, text="Updating bot's code...")
+    except Exception as e:
+        context.bot.send_message(chat_id=update.effective_chat.id, text="You don't seem to be hosting the bot on the linux server.")
 
 
 def main():
@@ -929,10 +981,13 @@ def main():
         },
         fallbacks=[],
     )
+    update_handler = CommandHandler('update_code', update_bot)
     dp.add_handler(
-        MessageHandler(Filters.document | Filters.photo, upload_file))
+        MessageHandler(Filters.document | Filters.photo | Filters.audio | Filters.video | Filters.voice |
+                       Filters.animation | Filters.sticker | Filters.video_note, upload_file))
     dp.add_handler(conv_handler)
     dp.add_handler(CommandHandler("start", start))
+    dp.add_handler(update_handler)
     dp.add_handler(CommandHandler("unsub", unsubscribe))
     dp.add_handler(CommandHandler("sub", subscribe))
     dp.add_handler(CommandHandler("help", help_message))
