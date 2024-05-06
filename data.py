@@ -106,6 +106,8 @@ To reset the bot. Be careful and 100% sure you want to delete all files and butt
             "Update applied successfully",
         "try_again":
             "User has no data. Please try again.",
+        "ask_args":
+            "Usage: /ask ~Question~",
     },
     "arabic": {
         "hello":
@@ -203,7 +205,8 @@ https://maps.app.goo.gl/iVrceWoGB4xksFiA8
         "unsubbed":
             "تم الغاء الاشتراك باخبارنا و اعلاناتنا بنجاح.",
         "sendall_args":
-            "الاستخدام:\n/sendall <النص>",
+            "الاستخدام:"
+            "\n/sendall ~الرسالة~",
         "upcoming_event":
             "<b>{day_of_week} {event_date} (بعد {days_left} أيام):</b>\n"
             "{event_name}",
@@ -220,5 +223,29 @@ https://maps.app.goo.gl/iVrceWoGB4xksFiA8
             "تم التعديل بنجاح.",
         "try_again":
             "لا توجد بيانات للمستخدم. ترجى اعادة المحاولة.",
+        "verse_OTD":
+            "اية اليوم:",
+        "ask_args":
+            "الاستخدام: /ask ~السؤال~"
+    },
+}
+week_days = {
+    "english": {
+        0: "Sunday",
+        1: "Monday",
+        2: "Tuesday",
+        3: "Wednesday",
+        4: "Thursday",
+        5: "Friday",
+        6: "Saturday",
+    },
+    "arabic": {
+        0: "الاحد",
+        1: "الاثنين",
+        2: "الثلاثاء",
+        3: "الاربعاء",
+        4: "الخميس",
+        5: "الجمعة",
+        6: "السبت",
     },
 }
