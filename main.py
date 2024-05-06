@@ -954,7 +954,7 @@ def start(update: Update, context: CallbackContext):
 def update_bot(update, context):
     # Send a message indicating the update process
     try:
-        subprocess.run(['/path/to/update_bot.sh'])
+        subprocess.run(['/home/zaid/update_bot.sh'])
         context.bot.send_message(chat_id=update.effective_chat.id, text="Updating bot's code...")
     except Exception as e:
         context.bot.send_message(chat_id=update.effective_chat.id, text="You don't seem to be hosting the bot on the linux server.")
